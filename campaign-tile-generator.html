@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campaign Tile Generator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f8; color: #1a1a2e; min-height: 100vh; padding: 40px 24px; }
+  .app { max-width: 900px; margin: 0 auto; }
+  header { margin-bottom: 36px; }
+  header h1 { font-size: 24px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+  header p { font-size: 14px; color: #6b6b80; line-height: 1.6; max-width: 620px; }
+  .selectors { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .selector-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .step { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #1a1a2e; color: white; font-size: 11px; font-weight: 700; margin-bottom: 10px; }
+  .selector-card label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #8080a0; margin-bottom: 8px; }
+  .selector-card select { width: 100%; padding: 9px 32px 9px 11px; border: 1.5px solid #e2e2ec; border-radius: 8px; font-size: 13px; color: #1a1a2e; background: white; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238080a0' d='M5 7L0 2h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; cursor: pointer; transition: border-color 0.15s; }
+  .selector-card select:focus { outline: none; border-color: #5a2db8; }
+  .selector-card select:disabled { background-color: #f7f7fa; color: #bbb; cursor: not-allowed; }
+  .selector-card .hint { font-size: 11px; color: #a0a0b8; margin-top: 8px; line-height: 1.4; }
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+  .btn { padding: 7px 15px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-ghost { background: #ebebf2; color: #5a5a78; }
+  .btn-ghost:hover { background: #e0e0ee; }
+  .btn-dark { background: #1a1a2e; color: white; }
+  .btn-dark:hover { background: #2c2c48; }
+  .tile-container { background: white; border-radius: 14px; box-shadow: 0 2px 14px rgba(0,0,0,0.09); overflow: hidden; animation: fadeIn 0.2s ease; }
+  .tile-container.hidden { display: none; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .tile-header { padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .tile-path { font-size: 13px; font-weight: 600; color: white; }
+  .tile-badge { flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; background: rgba(255,255,255,0.22); color: white; padding: 3px 9px; border-radius: 4px; }
+  .tile-body { padding: 28px 24px 20px; }
+  .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+  .tile-problems { list-style: none; margin-bottom: 20px; }
+  .tile-problems li { font-size: 14px; line-height: 1.65; color: #22223a; padding: 13px 15px; background: #f7f7fb; border-radius: 8px; margin-bottom: 9px; border-left: 3px solid transparent; }
+  .tile-proof { font-size: 13px; line-height: 1.6; color: #58587a; padding: 13px 15px; background: #f7f7fb; border-radius: 8px; border-left: 3px solid #d0d0e4; }
+  .proof-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #9090b0; margin-bottom: 10px; }
+  .tile-actions { padding: 14px 24px; border-top: 1px solid #f0f0f6; display: flex; align-items: center; gap: 10px; }
+  .copy-feedback { font-size: 12px; color: #2a8a5a; opacity: 0; transition: opacity 0.3s; }
+  .copy-feedback.show { opacity: 1; }
+  .no-match { background: white; border-radius: 12px; padding: 32px 24px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .no-match.hidden { display: none; }
+  .no-match p { font-size: 14px; color: #6b6b80; line-height: 1.6; }
+  .uc-billing .tile-header { background: #5a2db8; }
+  .uc-billing .section-label { color: #5a2db8; }
+  .uc-billing .tile-problems li { border-left-color: #5a2db8; }
+  .uc-labor .tile-header { background: #0e71d4; }
+  .uc-labor .section-label { color: #0e71d4; }
+  .uc-labor .tile-problems li { border-left-color: #0e71d4; }
+  .uc-compliance .tile-header { background: #0d8567; }
+  .uc-compliance .section-label { color: #0d8567; }
+  .uc-compliance .tile-problems li { border-left-color: #0d8567; }
+  @media (max-width: 680px) { .selectors { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Campaign Tile Generator</h1>
+    <p>Select a buyer, industry, and use case to surface the messaging anchor for that path. Only valid combinations appear at each step.</p>
+  </header>
+  <div class="selectors">
+    <div class="selector-card">
+      <div class="step">1</div>
+      <label>Buyer</label>
+      <select id="buyerSelect"><option value="">Select a buyer...</option></select>
+      <p class="hint">Who are you targeting?</p>
+    </div>
+    <div class="selector-card">
+      <div class="step">2</div>
+      <label>Industry</label>
+      <select id="industrySelect" disabled><option value="">Select buyer first</option></select>
+      <p class="hint">Where does this buyer appear?</p>
+    </div>
+    <div class="selector-card">
+      <div class="step">3</div>
+      <label>Use Case</label>
+      <select id="usecaseSelect" disabled><option value="">Select industry first</option></select>
+      <p class="hint">What are they trying to accomplish?</p>
+    </div>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-ghost" onclick="resetAll()">Reset</button>
+  </div>
+  <div id="tileContainer" class="tile-container hidden">
+    <div class="tile-header">
+      <span class="tile-path" id="tilePath"></span>
+      <span class="tile-badge" id="tileBadge"></span>
+    </div>
+    <div class="tile-body">
+      <div class="section-label">Problems this buyer feels</div>
+      <ul class="tile-problems" id="tileProblems"></ul>
+      <div id="proofSection">
+        <div class="proof-label">Proof point</div>
+        <div class="tile-proof" id="tileProof"></div>
+      </div>
+    </div>
+    <div class="tile-actions">
+      <button class="btn btn-dark" onclick="copyTile()">Copy tile</button>
+      <span class="copy-feedback" id="copyFeedback">Copied to clipboard</span>
+    </div>
+  </div>
+  <div id="noMatch" class="no-match hidden">
+    <p>No tile exists for this combination. Try a different path.</p>
+  </div>
+</div>
+<script>
+const B_IND = {
+  "CFO / VP Finance": ["Professional Services","IT Services","Engineering","Life Sciences","Nonprofit","Government","Government Contractor","Financial Services","Manufacturing","Internal Tech / Eng. Teams"],
+  "COO / VP Operations": ["Professional Services","IT Services","Engineering","Life Sciences","Manufacturing"],
+  "Director of FP&A": ["Professional Services","IT Services","Engineering","Life Sciences","Financial Services","Manufacturing","Internal Tech / Eng. Teams","Nonprofit","Government"],
+  "Controller / Dir. Finance": ["Professional Services","IT Services","Engineering","Life Sciences","Nonprofit","Government","Government Contractor","Financial Services","Manufacturing","Internal Tech / Eng. Teams"],
+  "Resource / Engagement Mgr": ["Professional Services","IT Services","Engineering","Life Sciences"],
+  "VP Engineering / R&D Lead": ["Engineering","Life Sciences","Financial Services","Manufacturing","Internal Tech / Eng. Teams"],
+  "CIO / Director of IT": ["Internal Tech / Eng. Teams","Financial Services","Government"],
+  "IT Finance / FinOps / TBM": ["Internal Tech / Eng. Teams","Financial Services"],
+};
+
+const I_UC = {
+  "Professional Services": ["Billing & Budgeting","Labor Cost Allocation","Compliance"],
+  "IT Services": ["Billing & Budgeting","Labor Cost Allocation","Compliance"],
+  "Engineering": ["Billing & Budgeting","Labor Cost Allocation","Compliance"],
+  "Life Sciences": ["Labor Cost Allocation","Billing & Budgeting","Compliance"],
+  "Nonprofit": ["Compliance","Labor Cost Allocation","Billing & Budgeting"],
+  "Government": ["Compliance","Labor Cost Allocation"],
+  "Government Contractor": ["Compliance","Labor Cost Allocation"],
+  "Financial Services": ["Labor Cost Allocation","Compliance","Billing & Budgeting"],
+  "Manufacturing": ["Labor Cost Allocation","Billing & Budgeting","Compliance"],
+  "Internal Tech / Eng. Teams": ["Labor Cost Allocation","Compliance","Billing & Budgeting"],
+};
+
+const UC_KEY = {
+  "Billing & Budgeting": "billing",
+  "Labor Cost Allocation": "labor",
+  "Compliance": "compliance",
+};
+
+const TILES = [
+  // ── CFO ──
+  {b:"CFO / VP Finance",i:"Professional Services",u:"Billing & Budgeting",
+   p1:"Hours that don't make it onto invoices erode margin invisibly. The CFO sees the EBITDA hit but can't trace it to a source.",
+   p2:"Disputes between finance and delivery over which hours were billable produce inconsistent revenue reporting.",
+   pf:"Labor costs up to 70% of operating expense (US BLS Q4 2023). CFO (ClickTime customer): 'ClickTime would easily be worth hundreds of thousands of dollars' when a problem surfaces."},
+  {b:"CFO / VP Finance",i:"Professional Services",u:"Compliance",
+   p1:"Public-company PS firms must defend revenue recognition under SOX, and labor data is the foundation of percentage-of-completion accounting.",
+   p2:"Material weaknesses on first audits often trace back to inadequate labor records.",
+   pf:"23% of finance leaders have faced audit failures from poor labor records (ClickTime's State of Labor Cost Management 2025). Big Four: smaller and newly public companies often identify material weaknesses in audits because of incomplete labor data."},
+  {b:"CFO / VP Finance",i:"Professional Services",u:"Labor Cost Allocation",
+   p1:"Internal capacity work and client-billable work blend together in reporting, making the true cost of running the firm hard to see.",
+   p2:"Without clean allocation, the CFO can't model where headcount investment is paying off.",
+   pf:"40% of finance leaders admit they don't trust their own labor cost data (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"CFO / VP Finance",i:"IT Services",u:"Billing & Budgeting",
+   p1:"Margin compression from rate pressure is hard to fight without a clear view of cost-to-serve by client.",
+   p2:"SLA-driven non-billable work absorbs capacity that should be revenue-producing.",
+   pf:"Only 47% of finance leaders can forecast future project costs effectively (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"CFO / VP Finance",i:"IT Services",u:"Compliance",
+   p1:"SOC 2 and SOX audits require defensible labor documentation that most firms reconstruct from PSA and project tools.",
+   p2:"IT services firms going public face 12-18 month SOX readiness windows that catch them flat-footed.",
+   pf:"Big Four: 'Once you go public, you have to comply with Sarbanes-Oxley. That is a whole new elevation of internal controls most organizations aren't prepared for.'"},
+  {b:"CFO / VP Finance",i:"IT Services",u:"Labor Cost Allocation",
+   p1:"Labor allocated across many small clients makes it hard to identify where the firm is actually profitable.",
+   p2:"AI and innovation initiatives compete with billable delivery for the same engineers, with no visibility into the trade-off.",
+   pf:"31.8% of finance leaders still rely on spreadsheets for complex labor tracking (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"CFO / VP Finance",i:"Engineering",u:"Billing & Budgeting",
+   p1:"Cost-to-complete forecasts on fixed-fee engineering contracts depend on labor data the firm reconstructs after the fact.",
+   p2:"Variances on long-cycle projects surface too late to recover margin.",
+   pf:"A specialty materials manufacturer (ClickTime customer) made $41M in labor costs visible and saved 17,000 admin hours annually across 85 employees. 50%+ of projects run over budget due to poor cost visibility (Standish CHAOS Report)."},
+  {b:"CFO / VP Finance",i:"Engineering",u:"Compliance",
+   p1:"Engineering firms doing federal work face dual exposure: GAAP audits plus DCAA-style scrutiny on federal contracts.",
+   p2:"R&D tax credit claims require business-component-level detail that estimate-based timesheets can't produce.",
+   pf:"Nearly 25% of finance leaders have lost R&D tax credits due to inadequate documentation (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"CFO / VP Finance",i:"Engineering",u:"Labor Cost Allocation",
+   p1:"Bid pricing on follow-on contracts depends on historical labor cost accuracy that reconstructed records can't reliably provide.",
+   p2:"Internal engineering improvement work and client-billable work need separation that most timesheet systems can't enforce."},
+  {b:"CFO / VP Finance",i:"Life Sciences",u:"Labor Cost Allocation",
+   p1:"Research programs run across multiple funding sources — grants, contracts, and internal investment — and labor costs must be defensibly allocated to each without reconstructing activity after the fact.",
+   p2:"Sponsor-funded and grant-funded programs require labor costs to be tracked to specific objectives — most firms reconstruct this allocation from estimates that don't hold up under audit.",
+   pf:"Big Four audit senior manager: most companies rely on manual month-end adjustments; automated systems still need controls to be auditable. Semiconductor manufacturer's Head of IT (ClickTime customer): 'We reclaim single-to-double digit millions every year in R&D tax credits with ClickTime.'"},
+  {b:"CFO / VP Finance",i:"Life Sciences",u:"Billing & Budgeting",
+   p1:"Sponsor reporting demands transparency the firm's current systems can't produce on demand.",
+   p2:"Margin on sponsor-facing work depends on protecting scientist time from over-servicing, which the CFO cannot see directly.",
+   pf:"Federal R&D obligations have approached $200B in recent years. Biotech M&A surged in 2025, with 2024 alone exceeding the prior five years combined in acquisition volume."},
+  {b:"CFO / VP Finance",i:"Life Sciences",u:"Compliance",
+   p1:"Sponsor audits surface the same data weaknesses that financial audits do, and finance owns both responses.",
+   p2:"R&D tax credit defense requires business component-level precision that estimate-based time data cannot provide.",
+   pf:"$12B+ in federal R&D tax credits available to biotech. Deloitte: SEC enforcement is a major fear factor — one example involved an $8M fine for improper software capitalization."},
+  {b:"CFO / VP Finance",i:"Nonprofit",u:"Compliance",
+   p1:"Funder reporting demands proof of how every grant dollar was spent, but compliance-driven timekeeping satisfies contracts without showing operational reality.",
+   p2:"Audit findings on time-and-effort reporting threaten future funding eligibility.",
+   pf:"Temporary funding sources like ARPA disappear but demand stays high, forcing tighter cost discipline at exactly the moment grant scrutiny intensifies."},
+  {b:"CFO / VP Finance",i:"Nonprofit",u:"Labor Cost Allocation",
+   p1:"Dollars stretch further when true costs are visible, but most nonprofits track only what the grant requires and miss the full inefficiency picture.",
+   p2:"Cost modeling for sustainability planning depends on labor visibility that grant-driven systems don't produce."},
+  {b:"CFO / VP Finance",i:"Government",u:"Compliance",
+   p1:"Public sector entities face inspector general audits, GSA reviews, and grant pass-through compliance simultaneously.",
+   p2:"Time-and-effort reporting requirements on federal grants demand documentation many agencies reconstruct manually each cycle.",
+   pf:"Government grant funders want to prove how their money was used and that grant funds were used only for approved purposes — an exposure level even private contractors recognize as serious."},
+  {b:"CFO / VP Finance",i:"Government",u:"Labor Cost Allocation",
+   p1:"Public sector budgeting cycles depend on accurate labor allocation that legacy systems weren't built to produce.",
+   p2:"Cross-program staffing requires allocation logic that time-and-effort spreadsheets can't sustain at scale."},
+  {b:"CFO / VP Finance",i:"Government Contractor",u:"Compliance",
+   p1:"DCAA-defensible labor records require direct vs. indirect cost discipline that most commercial systems don't enforce.",
+   p2:"Failed audits don't just produce findings — they jeopardize current and future contract eligibility.",
+   pf:"'You don't have to pay them. You just have to pass.' CAS 402 requires that labor charged as direct cost benefit only that contract; mischarging exposes contractors to significant legal liability."},
+  {b:"CFO / VP Finance",i:"Government Contractor",u:"Labor Cost Allocation",
+   p1:"Allocating labor cleanly between direct and indirect categories is a daily operational discipline, not a month-end exercise.",
+   p2:"Subcontractors over $50M face nearly the same documentation burden as primes, often without the systems to support it.",
+   pf:"CAS 401 requires consistency in estimating, accumulating, and reporting costs; CAS 402 prohibits classifying any cost as both direct and indirect. Historical labor data is also a FAR-mandated input for future contract pricing."},
+  {b:"CFO / VP Finance",i:"Financial Services",u:"Labor Cost Allocation",
+   p1:"68% of FS companies capitalize labor costs, but only 19% are confident integrating that data with financial systems.",
+   p2:"The industry that most needs sophisticated labor cost tracking struggles most with the technical integration required.",
+   pf:"Financial services companies track R&D teams at more than double the rate of other industries (57% vs. 24% for SaaS) — ClickTime's State of Labor Cost Management 2025."},
+  {b:"CFO / VP Finance",i:"Financial Services",u:"Compliance",
+   p1:"SOX, SEC reporting, and software capitalization guidance simultaneously demand defensible labor records.",
+   p2:"Regulatory examinations on technology investment require documentation finance has to assemble manually each cycle.",
+   pf:"23% of organizations have faced audit failures from poor labor cost records (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"CFO / VP Finance",i:"Manufacturing",u:"Labor Cost Allocation",
+   p1:"Cost-per-job accuracy is the basis of gross margin reporting and is undermined when labor is charged to the wrong cost objective.",
+   p2:"Direct labor utilization below target signals discipline problems that headcount changes won't fix.",
+   pf:"Per a former finance director (ClickTime customer): DLU improvements from 60% to 80-90% produced 3-5% gross margin improvement from tighter charging discipline, not headcount cuts. Engineering VP (ClickTime customer): tracking capitalizable labor saved $300,000/month through deferred tax treatment."},
+  {b:"CFO / VP Finance",i:"Manufacturing",u:"Compliance",
+   p1:"Public manufacturers face SOX-driven scrutiny on capitalization decisions tied to engineering and software labor.",
+   p2:"M&A diligence and audit defense both demand labor records that survive line-by-line review.",
+   pf:"IT Director after corporate spin-off (ClickTime customer): ClickTime allowed the team to track capitalizable labor hours and report on them instantaneously to accounting and finance during a 70-to-90% capitalization-rate transition."},
+  {b:"CFO / VP Finance",i:"Manufacturing",u:"Billing & Budgeting",
+   p1:"Contract manufacturing arrangements demand the same billing accuracy as professional services, with the added complexity of materials and overhead.",
+   p2:"Customer disputes over hours and rates erode the relationships that drive repeat work."},
+  {b:"CFO / VP Finance",i:"Internal Tech / Eng. Teams",u:"Labor Cost Allocation",
+   p1:"Engineering labor is the single largest capitalizable expense, and weak data exposes the firm to restatements during M&A or audit.",
+   p2:"Board pressure for cash-flow positivity requires aggressive capitalization backed by data that can actually be defended.",
+   pf:"88% of organizations struggle with month-end labor disclosures (E&Y). Deloitte: SEC enforcement is a major fear factor — one example involved an $8M fine for improper software capitalization."},
+  {b:"CFO / VP Finance",i:"Internal Tech / Eng. Teams",u:"Compliance",
+   p1:"SOX compliance for public software companies now extends deeply into engineering activity, where finance has the least visibility.",
+   p2:"Section 174 amortization requires contemporaneous documentation, not reconstructed estimates.",
+   pf:"Big Four: a successful compliance strategy requires a middle layer between technical teams and finance. Without it, newly public companies often identify material weaknesses in their audits."},
+  // ── Controller ──
+  {b:"Controller / Dir. Finance",i:"Professional Services",u:"Billing & Budgeting",
+   p1:"Month-end close on revenue depends on hours data the controller doesn't fully trust, producing manual adjustments and rework.",
+   p2:"Cash flow is sensitive to billing accuracy, but the source-of-truth for hours is fragmented across tools.",
+   pf:"31.8% of finance leaders still rely on spreadsheets for complex labor tracking (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"Controller / Dir. Finance",i:"Professional Services",u:"Compliance",
+   p1:"SOX-driven revenue recognition controls require labor records the controller has to produce on demand for testing.",
+   p2:"Public-company controllers face direct personal exposure under Sarbanes-Oxley sign-off requirements.",
+   pf:"Big Four: the worst-case outcome of SOX non-compliance is potentially criminal — controllers are increasingly looped into the same exposure as CFOs and CEOs."},
+  {b:"Controller / Dir. Finance",i:"Professional Services",u:"Labor Cost Allocation",
+   p1:"Allocating overhead to projects requires a labor data foundation that estimate-based systems cannot provide.",
+   p2:"Reconciling utilization metrics with general ledger entries consumes finance time that should go to higher-value analysis.",
+   pf:"54% of firms report lacking transparency in cost and profitability reporting (Deloitte/IMA Survey, May 2025). Only 38% of organizations leverage cost-to-serve analysis to understand true profitability by engagement."},
+  {b:"Controller / Dir. Finance",i:"IT Services",u:"Billing & Budgeting",
+   p1:"Reconciling PSA tool output with actual GL entries surfaces gaps every month-end.",
+   p2:"SLA work and project work blend in reporting, making profitability by engagement hard to defend.",
+   pf:"54% of firms lack transparency in cost and profitability reporting (Deloitte/IMA Survey, May 2025). Poor data quality and silos can drain up to 20% of revenue (Forbes/Ataccama, June 2023)."},
+  {b:"Controller / Dir. Finance",i:"IT Services",u:"Compliance",
+   p1:"SOC 2 and SOX testing require labor allocation evidence that current PSA toolchains weren't built to provide.",
+   p2:"Controls testing on revenue recognition surfaces the same labor data weaknesses every audit cycle.",
+   pf:"23% of organizations have faced audit failures from poor labor cost records (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"Controller / Dir. Finance",i:"IT Services",u:"Labor Cost Allocation",
+   p1:"Cost-to-serve calculations depend on labor data the controller has to assemble manually each period.",
+   p2:"Inconsistent classification across teams produces reports the controller can't fully stand behind."},
+  {b:"Controller / Dir. Finance",i:"Engineering",u:"Billing & Budgeting",
+   p1:"Engineering services contracts often run on T&M or fixed-fee terms that demand labor data tied to specific contracts and deliverables.",
+   p2:"Reconciling project-level labor against contract terms is manual work that consumes month-end capacity."},
+  {b:"Controller / Dir. Finance",i:"Engineering",u:"Compliance",
+   p1:"Federal engineering contracts require direct vs. indirect cost discipline most commercial controllers haven't operationalized.",
+   p2:"R&D credit substantiation under new IRS rules demands the kind of detail that retroactive estimates can't produce.",
+   pf:"Labor records constitute the only supporting documentation for costs charged to contracts, and must be kept for three years following final payment (Government labor charging guide)."},
+  {b:"Controller / Dir. Finance",i:"Engineering",u:"Labor Cost Allocation",
+   p1:"Capitalizing engineering labor for tangible asset construction requires the same discipline as software capitalization, with similar audit exposure.",
+   p2:"Inconsistent overhead allocation between projects produces variances that erode trust in cost reports.",
+   pf:"Under FAR, labor records must be maintained for three years following final contract payment, and must demonstrate that costs charged were actually incurred (Government labor charging guide)."},
+  {b:"Controller / Dir. Finance",i:"Life Sciences",u:"Labor Cost Allocation",
+   p1:"Research labor must be reconciled to contract terms, grant budgets, and financial reporting simultaneously — and the authoritative source for each is usually different.",
+   p2:"Grant compliance, sponsor reporting, and R&D credit substantiation all test the same underlying labor data — but the proof format required by each differs, and retroactive reconstruction rarely satisfies all three.",
+   pf:"Big Four audit senior manager: most companies rely on manual month-end adjustments; automated systems still need controls to be auditable. Big Four audit partner: companies cannot claim 'we're agile' to expense everything — capitalization is not a policy election."},
+  {b:"Controller / Dir. Finance",i:"Life Sciences",u:"Billing & Budgeting",
+   p1:"Sponsor invoicing pulls labor data from the same source that financial reporting does, and inconsistencies create disputes with both sponsors and auditors.",
+   p2:"Late or imprecise sponsor reports create friction that affects renewal terms."},
+  {b:"Controller / Dir. Finance",i:"Life Sciences",u:"Compliance",
+   p1:"R&D tax credit substantiation under new IRS rules demands the kind of detail that retroactive estimates can't produce.",
+   p2:"Audit defense for capitalized labor takes weeks of finance time when the underlying data is built from spreadsheets.",
+   pf:"Deloitte: high-trust documentation includes defined policies distinguishing new features (capitalizable) from maintenance (expensed), consistent project coding, and data drawn from systems engineers already use."},
+  {b:"Controller / Dir. Finance",i:"Nonprofit",u:"Compliance",
+   p1:"Time-and-effort reports must satisfy multiple funders with different rules, producing reconciliation work that consumes finance staff capacity.",
+   p2:"Funder audit findings often trace back to imprecise time data that grant managers couldn't fix downstream.",
+   pf:"Compliance-only mindset prevents visibility into inefficiency, so dollars don't go as far as they could."},
+  {b:"Controller / Dir. Finance",i:"Nonprofit",u:"Labor Cost Allocation",
+   p1:"Indirect cost rate calculations depend on labor data nonprofits often track only at grant-required levels.",
+   p2:"Mixed-funded staff working across grants and unrestricted programs require allocation logic that spreadsheets handle poorly."},
+  {b:"Controller / Dir. Finance",i:"Government",u:"Compliance",
+   p1:"Inspector general findings often trace to time-and-effort reporting weaknesses that legacy systems can't fix.",
+   p2:"Pass-through grant compliance multiplies the documentation burden across sub-recipients."},
+  {b:"Controller / Dir. Finance",i:"Government",u:"Labor Cost Allocation",
+   p1:"Cross-program staffing requires allocation logic that compliance-only timekeeping can't sustain.",
+   p2:"Indirect cost rate negotiations depend on labor data agencies reconstruct each cycle."},
+  {b:"Controller / Dir. Finance",i:"Government Contractor",u:"Compliance",
+   p1:"Direct vs. indirect cost discipline must be enforced at the moment of entry, not reconstructed at month-end.",
+   p2:"Floor-check audits and incurred cost submissions require labor records the controller can defend line-by-line.",
+   pf:"The approval layer is where authenticity holds — managers approving time determine whether data stays trustworthy. CAS 402 requires consistency in allocating costs; departures expose contractors to disallowance."},
+  {b:"Controller / Dir. Finance",i:"Government Contractor",u:"Labor Cost Allocation",
+   p1:"Bid and proposal cost segregation requires real-time visibility most systems can't provide.",
+   p2:"Indirect cost pool allocations break down when supervisory and direct labor get mis-coded."},
+  {b:"Controller / Dir. Finance",i:"Financial Services",u:"Labor Cost Allocation",
+   p1:"High capitalization rates combined with low integration confidence produce reconciliation work the controller can't automate away.",
+   p2:"Internal-use software classification is a daily judgment call exposed to SOX testing.",
+   pf:"FS has the highest need for sophisticated tracking (68% capitalize) but the lowest confidence in making it work (19% vs. 29% overall) — ClickTime's State of Labor Cost Management 2025."},
+  {b:"Controller / Dir. Finance",i:"Financial Services",u:"Compliance",
+   p1:"SOX, SEC reporting, and software capitalization guidance compound at month-end and quarter-end.",
+   p2:"Regulatory exam findings on technology investment increasingly reference labor data weaknesses."},
+  {b:"Controller / Dir. Finance",i:"Manufacturing",u:"Labor Cost Allocation",
+   p1:"Overhead growth without a corresponding revenue increase signals labor-charging discipline problems the controller has to diagnose.",
+   p2:"Cost-per-job variance reports lose credibility when underlying time data is suspect.",
+   pf:"'It's costing us to ship because we don't know who's working or how much they're producing.' A specialty materials manufacturer (ClickTime customer) made $41M in labor costs visible, saving 17,000 admin hours annually, supporting a successful acquisition."},
+  {b:"Controller / Dir. Finance",i:"Manufacturing",u:"Compliance",
+   p1:"Public manufacturers must defend capitalization decisions on engineering, IT, and software labor under SOX testing.",
+   p2:"R&D tax credit claims require the same level of business-component documentation as software-led companies face."},
+  {b:"Controller / Dir. Finance",i:"Manufacturing",u:"Billing & Budgeting",
+   p1:"Contract billing accuracy depends on direct labor records that have to tie back to job costing.",
+   p2:"Variance between estimated and actual labor on contracts surfaces too late to act on."},
+  {b:"Controller / Dir. Finance",i:"Internal Tech / Eng. Teams",u:"Labor Cost Allocation",
+   p1:"Capitalization decisions defended in front of auditors require time data the controller can trace from individual entry to GL line.",
+   p2:"Jira tags and manager estimates produce data finance doesn't trust, creating endless back-and-forth at close.",
+   pf:"Deloitte: controllers identify the deficiency first and live with the consequences of bad data. Big Four: companies struggle with accurate time tracking for internal teams and most rely on manual month-end adjustments."},
+  {b:"Controller / Dir. Finance",i:"Internal Tech / Eng. Teams",u:"Compliance",
+   p1:"SOX testing on engineering controls now reaches into how labor is classified and approved.",
+   p2:"Section 174 amortization schedules depend on labor records the controller can defend year over year.",
+   pf:"Big Four: developers don't like traditional time tracking and engineering data isn't built for financial reporting — closing this gap is what makes labor data audit-defensible."},
+  // ── FP&A ──
+  {b:"Director of FP&A",i:"Professional Services",u:"Billing & Budgeting",
+   p1:"Forecasts miss when utilization assumptions aren't grounded in real data, producing budget cycles built on inputs the team can't defend.",
+   p2:"Capacity planning for new business depends on labor visibility most firms reconstruct after the fact.",
+   pf:"61% of FP&A professionals identify lack of data reliability as the greatest hindrance to technology success (AFP, January 2025). Companies with integrated planning achieve 20-30% faster forecasting cycles and 15-20% higher labor-cost accuracy (Gartner/McKinsey, 2025)."},
+  {b:"Director of FP&A",i:"IT Services",u:"Billing & Budgeting",
+   p1:"Forecasting service-line margin requires cost-to-serve data that current systems produce too late to influence decisions.",
+   p2:"Headcount planning under growth depends on utilization trends that lagging data cannot reveal."},
+  {b:"Director of FP&A",i:"Engineering",u:"Billing & Budgeting",
+   p1:"Cost-to-complete forecasting on long-cycle engineering projects depends on labor data updated more frequently than month-end.",
+   p2:"Bid-to-actual variance analysis requires historical labor records that pricing teams trust."},
+  {b:"Director of FP&A",i:"Life Sciences",u:"Labor Cost Allocation",
+   p1:"Driver-based forecasts for R&D programs need labor data tied to molecules and trials, not departments.",
+   p2:"Wage inflation can't be modeled cleanly without knowing where current labor is actually being applied.",
+   pf:"Deloitte late-2024 CFO survey: projected 7.3% domestic wage increase over the following 12 months — nearly double the prior projection."},
+  {b:"Director of FP&A",i:"Life Sciences",u:"Billing & Budgeting",
+   p1:"Sponsor budgets are set at the program level and must be tracked against actual labor spend — variances surfaced after the fact create reimbursement disputes and contract friction.",
+   p2:"Planning headcount across internal R&D and sponsored research simultaneously requires labor cost data most life sciences finance teams reconstruct monthly."},
+  {b:"Director of FP&A",i:"Manufacturing",u:"Labor Cost Allocation",
+   p1:"Cost-per-job forecasts depend on DLU assumptions the team can't validate without trustworthy charging data.",
+   p2:"Capacity models for new product lines lose accuracy when indirect and direct labor are miscategorized."},
+  {b:"Director of FP&A",i:"Manufacturing",u:"Billing & Budgeting",
+   p1:"Contract manufacturing engagements require FP&A to forecast margin at the contract level — which depends on labor cost data tied to specific jobs and deliverables.",
+   p2:"Bid pricing for new contracts draws from historical labor cost accuracy that most manufacturing finance teams have to reconstruct from indirect records."},
+  {b:"Director of FP&A",i:"Financial Services",u:"Labor Cost Allocation",
+   p1:"Capitalization forecasts depend on labor projections finance can integrate with the GL — but FS firms are the least confident in that integration.",
+   p2:"Technology investment models require labor data that current systems produce too late to inform planning.",
+   pf:"68% of FS companies capitalize labor costs, but only 19% are confident integrating that data with financial systems (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"Director of FP&A",i:"Financial Services",u:"Billing & Budgeting",
+   p1:"Technology project budgets depend on labor cost visibility that finance and IT rarely share from the same source.",
+   p2:"Capitalization decisions affect which technology costs hit the P&L and which are deferred — FP&A needs underlying labor data to model these scenarios forward.",
+   pf:"68% of FS companies capitalize labor costs, but only 19% are confident integrating that data with financial systems (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"Director of FP&A",i:"Internal Tech / Eng. Teams",u:"Labor Cost Allocation",
+   p1:"Capitalized labor forecasts depend on engineering activity data finance has to chase down each period.",
+   p2:"R&D tax credit modeling requires business component-level detail the team typically reconstructs from incomplete sources.",
+   pf:"'You can't forecast accurately if you don't know what people are actually working on.'"},
+  {b:"Director of FP&A",i:"Internal Tech / Eng. Teams",u:"Billing & Budgeting",
+   p1:"Capitalized labor forecasts require FP&A to project which engineering activity qualifies for capitalization — a judgment call that depends on real-time labor classification.",
+   p2:"Without clean labor allocation at the project level, technology investment models are built on assumptions finance can't defend to the board.",
+   pf:"61% of FP&A professionals identify lack of data reliability as the greatest hindrance to technology success (AFP, January 2025)."},
+  {b:"Director of FP&A",i:"Government",u:"Compliance",
+   p1:"Sustainability planning for public sector entities depends on cost modeling tied to grant-eligible activities.",
+   p2:"Multi-year budget cycles require labor allocation data legacy systems weren't designed to produce."},
+  {b:"Director of FP&A",i:"Nonprofit",u:"Compliance",
+   p1:"Sustainability planning depends on cost modeling that requires accurate labor data, which most nonprofits track only at grant-required levels.",
+   p2:"Funder reporting forecasts can't be modeled cleanly when historical data is built from compliance-only timekeeping."},
+  {b:"Director of FP&A",i:"Nonprofit",u:"Billing & Budgeting",
+   p1:"Grant-funded programs require FP&A to forecast spending against budget by funding source — labor is the largest line item and the hardest to project without real-time allocation data.",
+   p2:"Indirect cost rate planning depends on accurately separating program costs from administrative overhead, which compliance-only timekeeping doesn't produce."},
+  // ── COO ──
+  {b:"COO / VP Operations",i:"Professional Services",u:"Billing & Budgeting",
+   p1:"Over-servicing erodes margin invisibly until projects close and the variance shows up in the P&L.",
+   p2:"Utilization reports lag the work itself, so corrective action happens after the damage is done.",
+   pf:"PS Operations matrix: operational blind spots produce late projects, over-servicing, and staff burnout."},
+  {b:"COO / VP Operations",i:"Professional Services",u:"Labor Cost Allocation",
+   p1:"Overhead allocation across client-facing and internal teams is invisible to operations until it shows up as a margin problem at period close.",
+   p2:"Strategic headcount decisions — which teams to grow, which to redeploy — depend on labor cost data that most PS operations leaders don't have in real time.",
+   pf:"54% of firms report lacking transparency in cost and profitability reporting (Deloitte/IMA Survey, May 2025)."},
+  {b:"COO / VP Operations",i:"IT Services",u:"Billing & Budgeting",
+   p1:"Scaling delivery without breaking SLAs requires capacity visibility most systems can't provide in real time.",
+   p2:"Non-billable work competes with delivery for the same capacity, with no clean way to budget for it."},
+  {b:"COO / VP Operations",i:"IT Services",u:"Labor Cost Allocation",
+   p1:"The cost to run each service line is impossible to manage without labor data that separates billable delivery from innovation, training, and internal support.",
+   p2:"AI and automation investments compete with service delivery for the same workforce — operations needs visibility into that trade-off before committing headcount."},
+  {b:"COO / VP Operations",i:"Engineering",u:"Billing & Budgeting",
+   p1:"Project profitability on engineering services contracts depends on labor data the operations leader needs in real time, not at close.",
+   p2:"Bid pricing decisions on new engineering work draw from historical labor cost data the firm hasn't operationalized."},
+  {b:"COO / VP Operations",i:"Engineering",u:"Labor Cost Allocation",
+   p1:"Engineering services margins depend on knowing the fully-loaded cost of delivering each project, not just the hours billed to clients.",
+   p2:"Internal capability investment competes with client-billable work for the same specialist workforce — the operations leader can't prioritize without seeing the full picture."},
+  {b:"COO / VP Operations",i:"Life Sciences",u:"Billing & Budgeting",
+   p1:"Sponsor expectations on transparency outpace the firm's ability to produce timely reports without overloading staff.",
+   p2:"Cultural resistance from scientists to time tracking produces incomplete data that operations has to defend.",
+   pf:"Life Sciences Operations matrix: scientists see tracking as administrative overhead, leading to incomplete or inaccurate data."},
+  {b:"COO / VP Operations",i:"Life Sciences",u:"Labor Cost Allocation",
+   p1:"Scientist time is split across funded programs, sponsor contracts, and internal initiatives — operations needs to see where it's actually going to protect capacity and margins.",
+   p2:"Cultural resistance to time tracking means the data operations depends on for planning is often the least reliable data in the organization.",
+   pf:"Life Sciences Operations matrix: scientists see tracking as administrative overhead — the same data gap that drives staffing disputes and capacity blind spots."},
+  {b:"COO / VP Operations",i:"Manufacturing",u:"Labor Cost Allocation",
+   p1:"Direct labor utilization below target signals discipline problems on the floor, but the operations leader can't act without knowing where overhead is being absorbed.",
+   p2:"Bench-building gets neglected when supervisors can't see where their teams are actually spending time.",
+   pf:"'We weren't fighting vacation. We were fighting overhead while they were at work.' DLU improvements from 60% to 80-90% produced 3-5% gross margin improvement at one manufacturer (ClickTime customer)."},
+  {b:"COO / VP Operations",i:"Manufacturing",u:"Billing & Budgeting",
+   p1:"Contract manufacturing margin depends on knowing the cost to complete each job before close — not discovering overruns at billing time.",
+   p2:"Customer commitments on fixed-price contracts require real-time visibility into labor spend against the quote, which most manufacturing operations leaders don't have."},
+  // ── Resource Manager ──
+  {b:"Resource / Engagement Mgr",i:"Professional Services",u:"Billing & Budgeting",
+   p1:"Allocation decisions made on intuition produce both overworked stars and under-utilized benchwarmers in the same week.",
+   p2:"Real-time visibility into capacity is what allows the resource manager to commit to new work without breaking existing engagements."},
+  {b:"Resource / Engagement Mgr",i:"IT Services",u:"Billing & Budgeting",
+   p1:"SLA risk windows demand capacity that resource managers have to plan ahead of, not react to.",
+   p2:"Skills-and-demand mismatches produce reactive hiring that erodes margin when the talent could have been redeployed."},
+  {b:"Resource / Engagement Mgr",i:"Engineering",u:"Billing & Budgeting",
+   p1:"Long-cycle engineering projects require staffing decisions that hold up months in advance, with capacity data resource managers don't have.",
+   p2:"Specialist allocation across multiple concurrent projects breaks down without a single source of capacity truth."},
+  {b:"Resource / Engagement Mgr",i:"Life Sciences",u:"Billing & Budgeting",
+   p1:"Scientific staff are scarce, and political battles over allocation between functions produce costly inefficiency.",
+   p2:"Scaling from 50 to 500 to 5,000 breaks every homegrown allocation system in turn."},
+  // ── VP Engineering ──
+  {b:"VP Engineering / R&D Lead",i:"Engineering",u:"Labor Cost Allocation",
+   p1:"Engineering services firms must defend hours billed to clients and hours spent on internal capability building, often with the same teams.",
+   p2:"Cost-per-project decisions on bidding new work require historical labor data that engineering leaders haven't operationalized."},
+  {b:"VP Engineering / R&D Lead",i:"Life Sciences",u:"Labor Cost Allocation",
+   p1:"Finance demands capitalization documentation, but the team doesn't want to interrupt scientists with administrative tasks.",
+   p2:"R&D credit defense pulls engineering leaders into audit prep work they're not staffed for.",
+   pf:"Deloitte: developers don't like traditional time tracking, and the future of capitalization documentation looks toward automated analysis of engineering activity rather than manual time entry."},
+  {b:"VP Engineering / R&D Lead",i:"Manufacturing",u:"Labor Cost Allocation",
+   p1:"Engineering labor miscategorized as indirect quietly inflates overhead and obscures the team's real cost-per-product contribution.",
+   p2:"Defending long-term engineering investment is hard when the cost data lives in finance's systems, not engineering's.",
+   pf:"Engineering VP at a motors manufacturer (ClickTime customer): 'Our accountants take the time data from ClickTime and put people's salaries to it, so they know exactly how much money we're spending for each project.'"},
+  {b:"VP Engineering / R&D Lead",i:"Internal Tech / Eng. Teams",u:"Labor Cost Allocation",
+   p1:"Top-down mandates to track time produce compliance theater rather than reliable data.",
+   p2:"Defending the roadmap and headcount depends on cost data finance trusts, which Jira tags alone don't produce.",
+   pf:"'The most painful part of my career was recognizing I couldn't just tell them to do it because it's the right thing to do.' Deloitte: the language gap between finance and engineering remains a widespread, unsolved challenge."},
+  {b:"VP Engineering / R&D Lead",i:"Internal Tech / Eng. Teams",u:"Compliance",
+   p1:"SOX controls now reach into engineering activity classification, which Jira-based tracking can't reliably support.",
+   p2:"R&D credit substantiation under new IRS rules requires engineering documentation that didn't exist under prior practice.",
+   pf:"Deloitte: defined policies distinguishing new features (capitalizable) from maintenance (expensed) and consistent project coding are now baseline expectations for high-trust audit documentation."},
+  {b:"VP Engineering / R&D Lead",i:"Financial Services",u:"Labor Cost Allocation",
+   p1:"Capitalization rates of 68% mean engineering activity directly drives balance sheet outcomes, but data integration is the industry's weakest link.",
+   p2:"Regulatory examiners are increasingly probing how technology investment is documented and classified.",
+   pf:"FS companies track R&D teams at more than double the rate of other industries (57% vs. 24% for SaaS) — ClickTime's State of Labor Cost Management 2025."},
+  // ── CIO ──
+  {b:"CIO / Director of IT",i:"Internal Tech / Eng. Teams",u:"Labor Cost Allocation",
+   p1:"IT's value across departments is hard to defend without chargeback data finance actually trusts.",
+   p2:"Balancing capital projects against operational work requires real-time visibility most IT shops don't have.",
+   pf:"TBM Council MD: 'The run side is often the big black box. Where are all these people? It's 70% of our spend.' IT Director (ClickTime customer): 'We follow our budget thanks to ClickTime.'"},
+  {b:"CIO / Director of IT",i:"Internal Tech / Eng. Teams",u:"Compliance",
+   p1:"IT controls under SOX include access management and capitalization classification — both depend on labor data IT has to produce on demand.",
+   p2:"TBM and ITFM toolchains conspicuously lack labor data, which is what limits credibility with finance during audit testing."},
+  {b:"CIO / Director of IT",i:"Financial Services",u:"Labor Cost Allocation",
+   p1:"Internal-use software capitalization at scale requires a labor data foundation most FS IT shops have not built.",
+   p2:"Chargeback disputes between IT and business units multiply when underlying labor data isn't a shared source of truth.",
+   pf:"68% of FS firms capitalize labor — the highest rate of any industry — yet integration confidence is the lowest (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"CIO / Director of IT",i:"Government",u:"Compliance",
+   p1:"Public sector IT modernization initiatives must defend labor allocation across federal, state, and local funding sources.",
+   p2:"Inspector general reviews on technology spend trace back to labor records IT staff reconstruct manually."},
+  // ── IT Finance ──
+  {b:"IT Finance / FinOps / TBM",i:"Internal Tech / Eng. Teams",u:"Labor Cost Allocation",
+   p1:"Defensible IT spend reporting requires labor data ServiceNow, Apptio, and finance systems don't natively produce.",
+   p2:"Disputes over IT cost allocation persist because the underlying labor data isn't a single source of truth.",
+   pf:"IT Cost Allocation matrix: the conspicuous lack of labor data in TBM/ITFM toolchains limits credibility with finance. SaaS companies track IT functions at higher rates than other industries (ClickTime's State of Labor Cost Management 2025)."},
+  {b:"IT Finance / FinOps / TBM",i:"Financial Services",u:"Labor Cost Allocation",
+   p1:"High capitalization volume combined with weak integration produces persistent reconciliation friction the FinOps lead has to resolve manually.",
+   p2:"Technology investment reporting to regulators draws from labor data the function has to assemble each cycle."},
+];
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+const buyerSel  = document.getElementById('buyerSelect');
+const indSel    = document.getElementById('industrySelect');
+const ucSel     = document.getElementById('usecaseSelect');
+const tileCont  = document.getElementById('tileContainer');
+const noMatch   = document.getElementById('noMatch');
+
+Object.keys(B_IND).forEach(b => {
+  const o = document.createElement('option'); o.value = b; o.textContent = b;
+  buyerSel.appendChild(o);
+});
+
+buyerSel.addEventListener('change', () => {
+  const buyer = buyerSel.value;
+  indSel.innerHTML = '<option value="">Select an industry...</option>';
+  ucSel.innerHTML  = '<option value="">Select industry first</option>';
+  ucSel.disabled   = true; hideTile();
+  if (!buyer) { indSel.disabled = true; return; }
+  indSel.disabled = false;
+  (B_IND[buyer] || []).forEach(ind => {
+    const o = document.createElement('option'); o.value = ind; o.textContent = ind;
+    indSel.appendChild(o);
+  });
+});
+
+indSel.addEventListener('change', () => {
+  const ind = indSel.value;
+  ucSel.innerHTML = '<option value="">Select a use case...</option>';
+  hideTile();
+  if (!ind) { ucSel.disabled = true; return; }
+  ucSel.disabled = false;
+  (I_UC[ind] || []).forEach(uc => {
+    const o = document.createElement('option'); o.value = uc; o.textContent = uc;
+    ucSel.appendChild(o);
+  });
+});
+
+ucSel.addEventListener('change', () => {
+  const buyer = buyerSel.value, ind = indSel.value, uc = ucSel.value;
+  if (!buyer || !ind || !uc) { hideTile(); return; }
+  const tile = TILES.find(t => t.b === buyer && t.i === ind && t.u === uc);
+  tile ? showTile(tile) : (hideTile(), noMatch.classList.remove('hidden'));
+});
+
+function showTile(tile) {
+  noMatch.classList.add('hidden');
+  tileCont.className = 'tile-container uc-' + UC_KEY[tile.u];
+  document.getElementById('tilePath').textContent  = tile.b + '  →  ' + tile.i + '  →  ' + tile.u;
+  document.getElementById('tileBadge').textContent = tile.u;
+  const ul = document.getElementById('tileProblems');
+  ul.innerHTML = '';
+  [tile.p1, tile.p2].filter(Boolean).forEach(p => {
+    const li = document.createElement('li'); li.textContent = p; ul.appendChild(li);
+  });
+  const ps = document.getElementById('proofSection');
+  if (tile.pf) {
+    document.getElementById('tileProof').textContent = tile.pf;
+    ps.style.display = 'block';
+  } else { ps.style.display = 'none'; }
+  tileCont.classList.remove('hidden');
+}
+
+function hideTile() {
+  tileCont.classList.add('hidden'); noMatch.classList.add('hidden');
+}
+
+function resetAll() {
+  buyerSel.value = '';
+  indSel.innerHTML = '<option value="">Select buyer first</option>'; indSel.disabled = true;
+  ucSel.innerHTML  = '<option value="">Select industry first</option>'; ucSel.disabled = true;
+  hideTile();
+}
+
+function copyTile() {
+  const buyer = buyerSel.value, ind = indSel.value, uc = ucSel.value;
+  const tile = TILES.find(t => t.b === buyer && t.i === ind && t.u === uc);
+  if (!tile) return;
+  let text = tile.b + ' → ' + tile.i + ' → ' + tile.u + '\n\nPROBLEMS THIS BUYER FEELS:\n';
+  if (tile.p1) text += '• ' + tile.p1 + '\n';
+  if (tile.p2) text += '• ' + tile.p2 + '\n';
+  if (tile.pf) text += '\nPROOF POINT:\n' + tile.pf;
+  navigator.clipboard.writeText(text.trim()).then(() => {
+    const fb = document.getElementById('copyFeedback');
+    fb.classList.add('show'); setTimeout(() => fb.classList.remove('show'), 2200);
+  });
+}
+</script>
+</body>
+</html>
